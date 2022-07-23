@@ -45,7 +45,6 @@ public class MainActivity extends AppCompatActivity {
         Gson gson = new GsonBuilder().setLenient().create();
 
         binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        binding.recyclerView.addItemDecoration(new DividerItemDecoration(binding.recyclerView.getContext(), DividerItemDecoration.VERTICAL));
 
         retrofit = new Retrofit.Builder()
                 .baseUrl(BASE_URL)
