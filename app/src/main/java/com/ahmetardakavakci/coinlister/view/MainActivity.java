@@ -7,7 +7,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import android.os.Bundle;
 import android.view.View;
 
-import com.ahmetardakavakci.coinlister.R;
 import com.ahmetardakavakci.coinlister.adapter.CoinAdapter;
 import com.ahmetardakavakci.coinlister.databinding.ActivityMainBinding;
 import com.ahmetardakavakci.coinlister.model.Coin;
@@ -18,11 +17,11 @@ import com.google.gson.GsonBuilder;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.reactivex.rxjava3.disposables.CompositeDisposable;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.schedulers.Schedulers;
 import retrofit2.Retrofit;
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity {
@@ -50,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
         retrofit = new Retrofit.Builder()
                 .baseUrl(BASE_URL)
+                .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build();
 
@@ -63,32 +63,24 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadData() {
 
-        CryptoAPI cryptoAPI = retrofit.create(CryptoAPI.class);
-        Call<List<Coin>> call = cryptoAPI.getData();
-
-        call.enqueue(new Callback<List<Coin>>() {
-            @Override
-            public void onResponse(Call<List<Coin>> call, Response<List<Coin>> response) {
-                if (response.isSuccessful()) {
-                    List<Coin> responseList = response.body();
-                    coinModels = new ArrayList<>(responseList);
-
-                    coinAdapter = new CoinAdapter(coinModels);
-                    binding.recyclerView.setAdapter(coinAdapter);
-
-                    for (Coin coin : coinModels) {
-                        System.out.println("Name: " + coin.currency + "\nPrice: " + coin.price + "\n---------------------");
-                    }
-
-                }
-            }
-
-            @Override
-            public void onFailure(Call<List<Coin>> call, Throwable t) {
-                t.printStackTrace();
-            }
-        });
-
+        final CryptoAPI cryptoAPI = retrofit.create(CryptoAPI.class);
+        compositeDisposable = new CompositeDisposable();
+        compositeDisposable.add(cryptoAPI.getData()
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(this::handleResponse)
+        );
     }
 
+    private void handleResponse(List<Coin> coinList){
+        coinModels = new ArrayList<>(coinList);
+        coinAdapter = new CoinAdapter(coinModels);
+        binding.recyclerView.setAdapter(coinAdapter);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        compositeDisposable.clear();
+    }
 }
